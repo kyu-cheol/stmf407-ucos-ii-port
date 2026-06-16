@@ -229,8 +229,8 @@ OSStartHighRdy:
     MOVS    R0, #0                                              @ Set the PSP to 0 for initial context switch call
     MSR     PSP, R0
 
-    @ 인터럽트 전용 스택을 사용하도록 MSP 값을 바꿔주는 코드 블록인듯
-    @ 근데 OS_CPU_ExceptStkBase에 값이 0이어서 MSP가 0으로 되고 그 위치에서 스택연산들을 수행하며 fault 발생
+    @ 인터럽트 전용 스택을 사용하도록 설정 하면서 MSP값을 0으로 만들어 버리는 버그 발생
+    @ 해당 부분을 주석처리해서 핸들러들도 이전에 쓰던 MSP 이어서 사용하도록 변경
     @MOVW    R0, #:lower16:OS_CPU_ExceptStkBase                  @ Initialize the MSP to the OS_CPU_ExceptStkBase
     @MOVT    R0, #:upper16:OS_CPU_ExceptStkBase
     @LDR     R1, [R0]
