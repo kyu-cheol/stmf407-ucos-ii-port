@@ -80,7 +80,7 @@ void AppTask1(void *p_arg)
 
 	my_timer = OSTmrCreate(
         0,                      // 초기 지연 시간 (0이면 즉시 시작)
-        10,                     // 주기 (OS_TMR_CFG_TICKS_PER_SEC이 10일 때, 10은 1초를 의미)
+        1000,                   // 주기 (OS_TMR_CFG_TICKS_PER_SEC이 10일 때, 10은 1초를 의미)
         OS_TMR_OPT_PERIODIC,    // 주기적으로 반복 실행 옵션
         MyTimerCallback,        // 만료 시 호출할 함수 등록
         (void *)0,              // 콜백 함수에 넘겨줄 인자

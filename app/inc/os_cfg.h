@@ -51,7 +51,7 @@
 #define OS_SCHED_LOCK_EN          1u   /* Include code for OSSchedLock() and OSSchedUnlock()           */
 
 #define OS_TICK_STEP_EN           1u   /* Enable tick stepping feature for uC/OS-View                  */
-#define OS_TICKS_PER_SEC        100u   /* Set the number of ticks in one second                        */
+#define OS_TICKS_PER_SEC       1000u   /* Set the number of ticks in one second                        */
 
 #define OS_TLS_TBL_SIZE           0u   /* Size of Thread-Local Storage Table                           */
 
@@ -143,7 +143,7 @@
 #define OS_TMR_CFG_MAX           16u   /*     Maximum number of timers                                 */
 #define OS_TMR_CFG_NAME_EN        1u   /*     Determine timer names                                    */
 #define OS_TMR_CFG_WHEEL_SIZE     7u   /*     Size of timer wheel (#Spokes)                            */
-#define OS_TMR_CFG_TICKS_PER_SEC 10u   /*     Rate at which timer management task runs (Hz)            */
+#define OS_TMR_CFG_TICKS_PER_SEC 1000u /*     Rate at which timer management task runs (Hz)            */
 
 
                                        /* ---------------------- TRACE RECORDER ---------------------- */

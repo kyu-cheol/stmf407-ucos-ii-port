@@ -652,14 +652,15 @@ void  OS_CPU_SysTickHandler (void)
     OS_CPU_SR  cpu_sr;
 #endif
 
-    //__asm__ volatile ("BKPT");
-
     OS_ENTER_CRITICAL();
     OSIntEnter();                                               /* Tell uC/OS-II that we are starting an ISR            */
     OS_EXIT_CRITICAL();
 
     OSTimeTick();                                               /* Call uC/OS-II's OSTimeTick()                         */
 
+#if OS_TMR_EN > 0u
+    OSTmrSignal();                                              /* Software Timer Task release */
+#endif
 
     OSIntExit();                                                /* Tell uC/OS-II that we are leaving the ISR            */
 }
