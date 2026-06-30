@@ -37,6 +37,11 @@ void main_bl(void)
 	//systick_enable();
 	uart_init(UART3, 115200);
 
+	// CP10(Bit 21:20)에 3(11)을 쓰고, CP11(Bit 23:22)에 3(11)을 써서 둘 다 Full Access로 만듦
+	*(volatile uint32_t *)0xE000ED88 |= ((3UL << 20) | (3UL << 22));
+	__asm__ volatile ("DSB");
+	__asm__ volatile ("ISB");
+	
 	uint32_t reg = RCC_CSR;
 	RCC_CSR |= RCC_CSR_RMVF;	// remove reset flag
 

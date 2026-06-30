@@ -15,7 +15,7 @@ void systick_disable(void)
 	SYSTICK_CSR &= ~((1 << 1) | (1 << 0));
 }
 
-uint32_t get_tick(void)
-{
-	return ticks;
-}
+// uint32_t get_tick(void)
+// {
+// 	return ticks;
+// }

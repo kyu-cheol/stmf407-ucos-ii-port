@@ -100,17 +100,17 @@ void clock_config(void)
     DMB();
 }
 
-void Delay(uint32_t delay)
-{
-	uint32_t tick_start = get_tick();
-	uint32_t wait = delay;
+// void Delay(uint32_t delay)
+// {
+// 	uint32_t tick_start = get_tick();
+// 	uint32_t wait = delay;
 
-	if (wait < MAX_DELAY) {
-		wait += 1;
-	}
+// 	if (wait < MAX_DELAY) {
+// 		wait += 1;
+// 	}
 
-	while ((get_tick() - tick_start) < wait);
-}
+// 	while ((get_tick() - tick_start) < wait);
+// }
 
 void SoftwareReset(void)
 {

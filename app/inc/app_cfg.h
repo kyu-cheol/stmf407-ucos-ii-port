@@ -52,6 +52,10 @@
 
 #define  APP_CFG_STARTUP_TASK_PRIO          3u
 
+#define APP_CFG_GUIDANCE_TASK_PRIO          10u
+#define APP_CFG_IMU_TASK_PRIO               11u
+#define APP_CFG_COMM_TASK_PRIO              12U
+
 #define  OS_TASK_TMR_PRIO                  (OS_LOWEST_PRIO - 2u)
 
 
@@ -63,6 +67,10 @@
 */
 
 #define  APP_CFG_STARTUP_TASK_STK_SIZE    128u
+
+#define APP_CFG_GUIDANCE_TASK_STK_SIZE    512u
+#define APP_CFG_IMU_TASK_STK_SIZE         256u
+#define APP_CFG_COMM_TASK_STK_SIZE        256u
 
 
 /*
@@ -211,17 +219,6 @@ void OSTaskSwHook(void);
 
 // 커널 코어 엔진이 조건 없이 무조건 호출하는 필수 훅 함수들의 빈 껍데기 선언
 typedef struct os_tcb OS_TCB;
-
-static inline void OSInitHookBegin(void)   { }
-static inline void OSInitHookEnd(void)     { }
-static inline void OSTimeTickHook(void)    { }
-static inline void OSTaskIdleHook(void)    { }
-static inline void OSTaskStatHook(void)    { }
-static inline void OSTCBInitHook(OS_TCB *ptcb)    { (void)ptcb; }
-static inline void OSTaskCreateHook(OS_TCB *ptcb)  { (void)ptcb; }
-static inline void OSTaskDelHook(OS_TCB *ptcb)     { (void)ptcb; }
-static inline void OSTaskReturnHook(OS_TCB *ptcb)  { (void)ptcb; }
-
 
 
 /*

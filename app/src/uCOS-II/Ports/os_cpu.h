@@ -91,11 +91,13 @@ extern  "C" {                                    /* See Note #1.                
 #define  OS_CPU_EXCEPT_STK_SIZE      256u        /* Default exception stack size is 256 OS_STK entries */
 #endif
 
-#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
+// #if (defined(__VFP_FP__) && !defined(__SOFTFP__))
+// #define  OS_CPU_ARM_FP_EN              1u
+// #else
+// #define  OS_CPU_ARM_FP_EN              0u
+// #endif
+
 #define  OS_CPU_ARM_FP_EN              1u
-#else
-#define  OS_CPU_ARM_FP_EN              0u
-#endif
 
 #ifndef CPU_CFG_KA_IPL_BOUNDARY
 #error  "CPU_CFG_KA_IPL_BOUNDARY        not #define'd in 'app_cfg.h'    "   /* See Note # 1 & 2        */

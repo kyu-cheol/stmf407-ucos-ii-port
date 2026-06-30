@@ -12,8 +12,8 @@
 void systick_enable(void);
 //void systick_init(void);
 void systick_disable(void);
-uint32_t get_tick(void);
+//uint32_t get_tick(void);
 
-extern uint32_t ticks;
+//extern uint32_t ticks;
 
 #endif

@@ -30,9 +30,9 @@
 
 
                                        /* ---------------------- MISCELLANEOUS ----------------------- */
-#define OS_APP_HOOKS_EN           0u   /* Application-defined hooks are called from the uC/OS-II hooks */
+#define OS_APP_HOOKS_EN           1u   /* Application-defined hooks are called from the uC/OS-II hooks */
 #define OS_ARG_CHK_EN             1u   /* Enable (1) or Disable (0) argument checking                  */
-#define OS_CPU_HOOKS_EN           0u   /* uC/OS-II hooks are found in the processor port files         */
+#define OS_CPU_HOOKS_EN           1u   /* uC/OS-II hooks are found in the processor port files         */
 
 #define OS_DEBUG_EN               0u   /* Enable(1) debug variables                                    */
 
@@ -74,7 +74,7 @@
 #define OS_TASK_STAT_EN           1u   /*     Enable (1) or Disable(0) the statistics task             */
 #define OS_TASK_STAT_STK_CHK_EN   1u   /*     Check task stacks from statistic task                    */
 #define OS_TASK_SUSPEND_EN        1u   /*     Include code for OSTaskSuspend() and OSTaskResume()      */
-#define OS_TASK_SW_HOOK_EN        0u   /*     Include code for OSTaskSwHook()                          */
+#define OS_TASK_SW_HOOK_EN        1u   /*     Include code for OSTaskSwHook()                          */
 
 
                                        /* ----------------------- EVENT FLAGS ------------------------ */

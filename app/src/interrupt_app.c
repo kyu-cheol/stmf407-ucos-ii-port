@@ -2,10 +2,9 @@
 #include "timer.h"
 #include "exti.h"
 #include "spi.h"
-#include <stdio.h>
-#include "led.h"
+#include "includes.h"
 
-volatile uint32_t ticks;
+//volatile uint32_t ticks;
 uint8_t timer_flag;
 uint8_t button_flag;
 
@@ -24,9 +23,16 @@ void isr_tim2(void)
 
 void isr_exti4(void)
 {
+	INT8U err;
+
+	OSIntEnter();
+
 	EXTI->PR |= 1 << 4;
 	button_flag = 1;
-	led_toggle();
+
+	OSFlagPost(MissileEventFlags, FLAG_PROP_OK, OS_FLAG_SET, &err);
+
+	OSIntExit();
 }
 
 void isr_spi1(void)

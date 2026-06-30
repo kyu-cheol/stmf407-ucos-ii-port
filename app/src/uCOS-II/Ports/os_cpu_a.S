@@ -237,7 +237,7 @@ OSStartHighRdy:
     @BKPT    #0
     @MSR     MSP, R1
 
-    @BL      OSTaskSwHook                                        @ Call OSTaskSwHook() for FPU Push & Pop
+    BL      OSTaskSwHook                                        @ Call OSTaskSwHook() for FPU Push & Pop
 
     LDR     R0, =OSRunning                                      @ OSRunning = TRUE
     MOVS    R1, #1
