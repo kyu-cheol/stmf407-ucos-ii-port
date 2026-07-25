@@ -93,7 +93,7 @@ void spi_init(SPI_x *spi, uint8_t mode, uint8_t size, uint8_t use_it)
 
             // NVIC spi interrupt enable
             nvic_irq_enable(NVIC_SPI1_IRQN);
-            nvic_irq_setprio(NVIC_SPI1_IRQN, 2);
+            nvic_irq_setprio(NVIC_SPI1_IRQN, 6);
         }
     }
     

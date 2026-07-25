@@ -234,7 +234,6 @@ OSStartHighRdy:
     @MOVW    R0, #:lower16:OS_CPU_ExceptStkBase                  @ Initialize the MSP to the OS_CPU_ExceptStkBase
     @MOVT    R0, #:upper16:OS_CPU_ExceptStkBase
     @LDR     R1, [R0]
-    @BKPT    #0
     @MSR     MSP, R1
 
     BL      OSTaskSwHook                                        @ Call OSTaskSwHook() for FPU Push & Pop
@@ -343,7 +342,10 @@ OSIntCtxSw:
 .global OS_CPU_PendSVHandler
 .thumb_func
 OS_CPU_PendSVHandler:
+<<<<<<< HEAD
     @BKPT    #0
+=======
+>>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
     CPSID   I                                                   @ Cortex-M7 errata notice. See Note #5
     MOVW    R2, #:lower16:OS_KA_BASEPRI_Boundary                @ Set BASEPRI priority level required for exception preemption
     MOVT    R2, #:upper16:OS_KA_BASEPRI_Boundary

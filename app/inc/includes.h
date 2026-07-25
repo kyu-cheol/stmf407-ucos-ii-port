@@ -4,8 +4,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include <string.h>
 #include "gpio.h"
 #include "system.h"
+#include "nvic.h"
 #include "systick.h"
 #include "timer.h"
 #include "led.h"
@@ -13,6 +16,7 @@
 #include "button.h"
 #include "spi.h"
 #include "flash.h"
+#include "wheel.h"
 
 #include  <ucos_ii.h>  // uCOS-II 코어 헤더
 #include  <os_cpu.h>   // 포팅 아키텍처 헤더

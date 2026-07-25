@@ -3,16 +3,8 @@
 #include "gpio.h"
 #include "system.h"
 #include "rcc.h"
-
-#define UART_CR1_UART_ENABLE    (1 << 13)
-#define UART_CR1_WORD_LEN       (1 << 12)
-#define UART_CR1_PARITY_ENABLED (1 << 10)
-#define UART_CR1_PARITY_ODD     (1 << 9)
-#define UART_CR1_TX_ENABLE      (1 << 3)
-#define UART_CR1_RX_ENABLE      (1 << 2)
-#define UART_CR2_STOPBITS       (3 << 12)
-#define UART_SR_TXE             (1 << 7)
-#define UART_SR_RXNE            (1 << 5)
+#include "nvic.h"
+#include "dma.h"
 
 // PB10, PB11
 #define UART3_TX_PIN (10)
@@ -47,12 +39,60 @@ void uart_init(UART_x *uart, uint32_t bitrate)
 
 	RCC_APB1_CLOCK_ER |= UART3_APB1_CLOCK_ER_VAL;
 
-	uart->CR1 |= UART_CR1_TX_ENABLE;		// trnasmit enable
+	uart->CR1 |= UART_CR1_TX_ENABLE;		// transmit enable
 	uart->BRR = PCLK1 / bitrate;			// bitrate setting
 	uart->CR1 &= ~UART_CR1_WORD_LEN;		// select 8bits len
 	uart->CR1 &= ~UART_CR1_PARITY_ENABLED;	// parity disable
 	uart->CR2 &= ~UART_CR2_STOPBITS;		// select 1 stop bit
 	uart->CR1 |= UART_CR1_UART_ENABLE;		// uart enable
+}
+
+void uart3_dma_rx_init(uint8_t *rx_dma_buffer, uint16_t packet_size)
+{
+	RCC_AHB1_CLOCK_ER |= DMA1_AHB1_CLOCK_ER_VAL;
+
+	// DMA1 Stream 1 비활성화
+	DMA1->S[1].CR &= ~DMA_SxCR_EN;
+	while (DMA1->S[1].CR & DMA_SxCR_EN);
+
+	// DMA mem/peripheral 주소 및 버퍼 크기 지정
+	DMA1->S[1].PAR = (uint32_t)&(UART3->DR);
+	DMA1->S[1].M0AR = (uint32_t)rx_dma_buffer;
+	DMA1->S[1].NDTR = packet_size;
+
+	// DMA Stream 설정 (Channel 4, Memory Increment, Circular Mode)
+	DMA1->S[1].CR = 0;
+	DMA1->S[1].CR |= (4 << DMA_SxCR_CHSEL_Pos);
+	DMA1->S[1].CR |= DMA_SxCR_MINC;
+	DMA1->S[1].CR |= DMA_SxCR_CIRC;
+
+	// DMA Stream 활성화
+	DMA1->S[1].CR |= DMA_SxCR_EN;
+
+	// UART 추가 설정 (RX 활성화, DMA 수신 연동, IDLE 인터럽트)
+	UART3->CR1 |= UART_CR1_RX_ENABLE;
+	UART3->CR3 |= UART_CR3_DMAR;
+	UART3->CR1 |= UART_CR1_IDLEIE;
+
+	nvic_irq_enable(NVIC_UART3_IRQN);
+	nvic_irq_setprio(NVIC_UART3_IRQN, 6);
+}
+
+void uart_recv_it_onoff(UART_x *uart, uint8_t enable)
+{
+	if (enable) {
+		uart->CR1 |= (UART_CR1_RX_ENABLE | UART_CR1_RXNEIE);
+		__asm__ volatile ("DMB");
+
+		nvic_irq_enable(NVIC_UART3_IRQN);
+		nvic_irq_setprio(NVIC_UART3_IRQN, 6);
+	}
+	else {
+		nvic_irq_disable(NVIC_UART3_IRQN);
+		
+		uart->CR1 &= ~(UART_CR1_RX_ENABLE | UART_CR1_RXNEIE);
+		__asm__ volatile ("DMB");
+	}
 }
 
 void uart_write(UART_x *uart, const char *data)

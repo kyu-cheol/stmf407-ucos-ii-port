@@ -5,18 +5,62 @@
 
 static void timer_reset(TIM_x *tim)
 {
+	if (tim == TIM1) {
+		RCC_APB2_CLOCK_RST |= TIM1_APB2_CLOCK_ER_VAL;
+		__asm__ volatile ("DMB");
+		RCC_APB2_CLOCK_RST &= ~TIM1_APB2_CLOCK_ER_VAL;
+	}
+
 	if (tim == TIM2) {
 		RCC_APB1_CLOCK_RST |= TIM2_APB1_CLOCK_ER_VAL;
 		__asm__ volatile ("DMB");
 		RCC_APB1_CLOCK_RST &= ~TIM2_APB1_CLOCK_ER_VAL;
 	}
+
+	if (tim == TIM3) {
+		RCC_APB1_CLOCK_RST |= TIM3_APB1_CLOCK_ER_VAL;
+		__asm__ volatile ("DMB");
+		RCC_APB1_CLOCK_RST &= ~TIM3_APB1_CLOCK_ER_VAL;
+	}
+
+	if (tim == TIM4) {
+		RCC_APB1_CLOCK_RST |= TIM4_APB1_CLOCK_ER_VAL;
+		__asm__ volatile ("DMB");
+		RCC_APB1_CLOCK_RST &= ~TIM4_APB1_CLOCK_ER_VAL;
+	}
+
+	if (tim == TIM9) {
+		RCC_APB2_CLOCK_RST |= TIM9_APB2_CLOCK_ER_VAL;
+		__asm__ volatile ("DMB");
+		RCC_APB2_CLOCK_RST &= ~TIM9_APB2_CLOCK_ER_VAL;
+	}
 }
 
 static void timer_enable_clock(TIM_x *tim)
 {
+	if (tim == TIM1) {
+		timer_reset(tim);
+		RCC_APB2_CLOCK_ER |= TIM1_APB2_CLOCK_ER_VAL;
+	}
+
 	if (tim == TIM2) {
 		timer_reset(tim);
 		RCC_APB1_CLOCK_ER |= TIM2_APB1_CLOCK_ER_VAL;
+	}
+
+	if (tim == TIM3) {
+		timer_reset(tim);
+		RCC_APB1_CLOCK_ER |= TIM3_APB1_CLOCK_ER_VAL;
+	}
+
+	if (tim == TIM4) {
+		timer_reset(tim);
+		RCC_APB1_CLOCK_ER |= TIM4_APB1_CLOCK_ER_VAL;
+	}
+
+	if (tim == TIM9) {
+		timer_reset(tim);
+		RCC_APB2_CLOCK_ER |= TIM9_APB2_CLOCK_ER_VAL;
 	}
 
 	__asm__ volatile ("DMB");
@@ -26,7 +70,7 @@ static void timer_enable_interrupt(TIM_x *tim)
 {
 	if (tim == TIM2) {
 		nvic_irq_enable(NVIC_TIM2_IRQN);
-    	nvic_irq_setprio(NVIC_TIM2_IRQN, 0);
+    	nvic_irq_setprio(NVIC_TIM2_IRQN, 6);
 	}
 
 	tim->DIER |= TIM_DIER_UIE;
@@ -63,7 +107,7 @@ static void timer_pwm_channel_config(TIM_x *tim, uint8_t channel, uint32_t duty)
 		// channel Output 설정, PWM mode 1, CCR Preload Enable (CCMR)
 		tim->CCMR1 &= ~(0x3 << 8);
 		tim->CCMR1 |= (0x6 << 12);
-		tim->CCMR1 |= (1 < 11);
+		tim->CCMR1 |= (1 << 11);
 
 		// Active High, Output Enable (CCER)
 		tim->CCER &= ~(1 << 5);
@@ -178,4 +222,38 @@ void timer_stop(TIM_x *tim)
 void timer_deinit(TIM_x *tim)
 {
 	;
+}
+
+void timer3_encoder_init(void)
+{
+	// GPIO mode, pull-up, AF 설정
+	gpio_set_mode(GPIOC, 6, GPIO_MODE_AF);
+	gpio_set_pupd(GPIOC, 6, GPIO_PUPD_PU);
+    
+	gpio_set_mode(GPIOC, 7, GPIO_MODE_AF);
+	gpio_set_pupd(GPIOC, 7, GPIO_PUPD_PU);
+
+	gpio_set_af(GPIOC, 6, TIM3_5_PIN_AF);
+	gpio_set_af(GPIOC, 7, TIM3_5_PIN_AF);
+
+	// TIM3 clock enable
+	timer_enable_clock(TIM3);
+
+	TIM3->CR1 = 0;   // disable timer counter
+
+	// Encoder Mode 3 설정 (4체배 방식)
+	TIM3->SMCR &= ~(0x07);
+	TIM3->SMCR |= (3 << 0);
+
+	// channel 1핀과 channel 2핀을 각각 TI1, TI2에 매핑
+	TIM3->CCMR1 &= ~((3 << 0) | (3 << 8));
+	TIM3->CCMR1 |= ((1 << 0) | (1 << 8));
+
+	// Polarity를 default edge 값으로 설정 (rising edge)
+	TIM3->CCER &= ~((1 << 1) | (1 << 3) | (1 << 5) | (1 << 7));
+
+	TIM3->ARR = 0xFFFF;
+
+	// TIM3 구동 시작
+	TIM3->CR1 |= (1 << 0);
 }

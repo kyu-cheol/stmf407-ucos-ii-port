@@ -24,7 +24,7 @@ void button_setup(void)
 	//EXTI_CR2 |= (0x4);
 	EXTI_CR2 |= EXTI_CR_E << ((BUTTON_PIN % 4) * 4);      // EXTI4에 GPIO PORT E 연결
 	nvic_irq_enable(NVIC_EXTI4_IRQN);
-	nvic_irq_setprio(NVIC_EXTI4_IRQN, 1);
+	nvic_irq_setprio(NVIC_EXTI4_IRQN, 6);
 
 	// interrupt activate at falling edge
 	EXTI->IMR |= 1 << BUTTON_PIN;

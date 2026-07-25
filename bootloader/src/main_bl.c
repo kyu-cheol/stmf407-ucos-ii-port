@@ -151,7 +151,11 @@ void update_application(uint32_t app_address)
 		spi_recv_idx = 0;
 		spi_recv_cplt_flag = 0;
 
+<<<<<<< HEAD
 		gpio_wrtie_pin(GPIOD, 4, 1);
+=======
+		gpio_write_pin(GPIOD, 4, 1);
+>>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
 
 		// 2. 1024 bytes 패킷 수신 후 버퍼에 저장
 		while (!spi_recv_cplt_flag) {
@@ -175,11 +179,14 @@ void update_application(uint32_t app_address)
 			flash_payload_buf[i] = raw_payload_32[i];
 		}
 
+<<<<<<< HEAD
 		// for (int i = 0; i < flash_write_num; i++) {
 		// 	printf("packet %d: %lx\r\n", i, flash_payload_buf[i]);
 		// }
 		// printf("\r\n");
 
+=======
+>>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
 		parsed_packet_crc = *(uint16_t *)&spi_recv_buf[1022];
 		//parsed_packet_crc = (uint16_t)((spi_recv_buf[1022] << 8) | spi_recv_buf[1023]);
 
@@ -238,7 +245,11 @@ void spi_rx_handler(SPI_x *SPIx, uint8_t data)
 	if (SPIx == SPI1) {
 		if (spi_recv_idx == 0) {
 			// 수신가능 신호 off
+<<<<<<< HEAD
 			gpio_wrtie_pin(GPIOD, 4, 0);
+=======
+			gpio_write_pin(GPIOD, 4, 0);
+>>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
 		}
 
 		if (spi_recv_idx < 1024) {

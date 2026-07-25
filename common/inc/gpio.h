@@ -60,16 +60,21 @@ typedef struct GPIO_PORT {
 #define GPIO_PUPD_PU   0x01
 #define GPIO_PUPD_PD   0x02
 
+#define GPIO_EXTI_RISING  0
+#define GPIO_EXTI_FALLING 1
+#define GPIO_EXTI_BOTH	  2
+
 #define HIGH 1
 #define LOW 0
 
 /* GPIO interface prototypes */
 void gpio_init(void);
-void gpio_wrtie_pin(GPIO_Port *gpiox, uint8_t pin, uint8_t pin_state);
+void gpio_write_pin(GPIO_Port *gpiox, uint8_t pin, uint8_t pin_state);
 uint8_t gpio_read_pin(GPIO_Port *gpiox, uint8_t pin);
 void gpio_set_mode(GPIO_Port *gpiox, uint8_t pin, uint8_t mode);
 void gpio_set_ospeed(GPIO_Port *gpiox, uint8_t pin, uint8_t ospeed);
 void gpio_set_pupd(GPIO_Port *gpiox, uint8_t pin, uint8_t pupd);
 void gpio_set_af(GPIO_Port *gpiox, uint8_t pin, uint8_t af_num);
+void gpio_set_exti(GPIO_Port *gpiox, uint8_t pin, uint8_t edge);
 
 #endif

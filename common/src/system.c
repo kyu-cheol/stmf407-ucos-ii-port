@@ -1,5 +1,9 @@
 #include <stdint.h>
 #include <sys/stat.h>
+<<<<<<< HEAD
+=======
+#include <sys/types.h>
+>>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
 #include "system.h"
 #include "systick.h"
 #include "rcc.h"
@@ -159,4 +163,14 @@ int _read(int file, char *ptr, int len) {
 
 int _close(int file) {
     return -1; // 파일을 닫을 수 없음
+}
+
+// 경고를 없애기 위한 Stub 함수 구현
+pid_t _getpid(void) {
+    return 1;
+}
+
+int _kill(int pid, int sig) {
+    (void)pid; (void)sig; // 사용하지 않는 변수 경고 방지
+    return -1;
 }

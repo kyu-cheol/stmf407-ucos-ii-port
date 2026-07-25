@@ -25,7 +25,29 @@ typedef struct UART_X {
 #define UART5_PIN_AF (8)
 #define UART6_PIN_AF (8)
 
+
+#define UART_CR1_UART_ENABLE    (1 << 13)
+#define UART_CR1_WORD_LEN       (1 << 12)
+#define UART_CR1_PARITY_ENABLED (1 << 10)
+#define UART_CR1_PARITY_ODD     (1 << 9)
+#define UART_CR1_TX_ENABLE      (1 << 3)
+#define UART_CR1_RX_ENABLE      (1 << 2)
+#define UART_CR1_RXNEIE			(1 << 5)
+#define UART_CR1_TXEIE			(1 << 7)
+#define UART_CR1_IDLEIE			(1 << 4)
+
+#define UART_CR2_STOPBITS       (3 << 12)
+
+#define UART_CR3_DMAR			(1 << 6)
+
+#define UART_SR_TXE             (1 << 7)
+#define UART_SR_RXNE            (1 << 5)
+#define UART_SR_IDLE			(1 << 4)
+
+
 void uart_init(UART_x *uart, uint32_t bitrate);	// "bitrate-8-N-1" 고정
+void uart3_dma_rx_init(uint8_t *rx_dma_buffer, uint16_t packet_size);
+void uart_recv_it_onoff(UART_x *uart, uint8_t enable);
 void uart_write(UART_x *uart, const char *data);
 void uart_deinit(UART_x *uart);
 
