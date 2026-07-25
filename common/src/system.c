@@ -1,9 +1,6 @@
 #include <stdint.h>
 #include <sys/stat.h>
-<<<<<<< HEAD
-=======
 #include <sys/types.h>
->>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
 #include "system.h"
 #include "systick.h"
 #include "rcc.h"

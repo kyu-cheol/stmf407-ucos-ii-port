@@ -342,10 +342,6 @@ OSIntCtxSw:
 .global OS_CPU_PendSVHandler
 .thumb_func
 OS_CPU_PendSVHandler:
-<<<<<<< HEAD
-    @BKPT    #0
-=======
->>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
     CPSID   I                                                   @ Cortex-M7 errata notice. See Note #5
     MOVW    R2, #:lower16:OS_KA_BASEPRI_Boundary                @ Set BASEPRI priority level required for exception preemption
     MOVT    R2, #:upper16:OS_KA_BASEPRI_Boundary

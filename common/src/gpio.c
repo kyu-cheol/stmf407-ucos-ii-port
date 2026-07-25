@@ -67,8 +67,6 @@ void gpio_set_af(GPIO_Port *gpiox, uint8_t pin, uint8_t af_num)
         reg = gpiox->AFRH & (~(0x0f << ((pin - 8) * 4)));
         gpiox->AFRH = reg | (af_num << ((pin - 8) * 4));
     }
-<<<<<<< HEAD
-=======
 }
 
 void gpio_set_exti(GPIO_Port *gpiox, uint8_t pin, uint8_t edge)
@@ -137,5 +135,4 @@ void gpio_set_exti(GPIO_Port *gpiox, uint8_t pin, uint8_t edge)
         EXTI->RTSR |= 1 << pin;
         EXTI->FTSR |= 1 << pin;
     }
->>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
 }

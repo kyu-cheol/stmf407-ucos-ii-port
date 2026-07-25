@@ -12,18 +12,12 @@ extern uint32_t *END_STACK;
 #define VTOR (*(volatile uint32_t *)(0xE000ED08))
 
 extern void isr_systick(void);
-<<<<<<< HEAD
-extern void isr_tim2(void);
-extern void isr_exti4(void);
-extern void isr_spi1(void);
-=======
 //extern void isr_tim2(void);
 extern void isr_tim4(void);
 extern void isr_exti4(void);
 //extern void isr_exti9_5(void);
 extern void isr_spi1(void);
 extern void isr_uart3(void);
->>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
 extern void OS_CPU_SysTickHandler(void);
 extern void OS_CPU_PendSVHandler(void);
 
@@ -43,11 +37,7 @@ void isr_reset(void) {
     }
 
     /* Initialize the BSS section to 0 */
-<<<<<<< HEAD
-    dst = &_start_bss;
-=======
     dst = &_start_bss;  
->>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
     while (dst < (unsigned int *)&_end_bss) {
         *dst = 0U;
         dst++;
@@ -115,15 +105,9 @@ void (* const IV[])(void) =
     isr_empty,              // TIM1_UP_TIM10_IRQ 25
     isr_empty,              // TIM1_TRG_COM_TIM11_IRQ 26
     isr_empty,              // TIM1_CC_IRQ 27
-<<<<<<< HEAD
-    isr_tim2,               // TIM2_IRQ 28
-    isr_empty,              // TIM3_IRQ 29
-    isr_empty,              // TIM4_IRQ 30
-=======
     isr_empty,              // TIM2_IRQ 28
     isr_empty,              // TIM3_IRQ 29
     isr_tim4,               // TIM4_IRQ 30
->>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
     isr_empty,              // I2C1_EV_IRQ 31
     isr_empty,              // I2C1_ER_IRQ 32
     isr_empty,              // I2C2_EV_IRQ 33
@@ -132,11 +116,7 @@ void (* const IV[])(void) =
     isr_empty,              // SPI2_IRQ 36
     isr_empty,              // USART1_IRQ 37
     isr_empty,              // USART2_IRQ 38
-<<<<<<< HEAD
-    isr_empty,              // USART3_IRQ 39
-=======
     isr_uart3,              // USART3_IRQ 39
->>>>>>> 4228a8c (Feat: Initial commit for Lumi Guidance Robot)
     isr_empty,              // EXTI15_10_IRQ 40
     isr_empty,              // RTC_ALARM_IRQ 41
     isr_empty,              // USB_FS_WKUP_IRQ 42
