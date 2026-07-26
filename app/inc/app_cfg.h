@@ -70,10 +70,10 @@
 
 #define  APP_CFG_STARTUP_TASK_STK_SIZE          256u
 
-#define APP_CFG_GUIDANCE_TASK_STK_SIZE          1024u
-#define APP_CFG_IMU_TASK_STK_SIZE               1024u
+#define APP_CFG_GUIDANCE_TASK_STK_SIZE          4096u
+#define APP_CFG_IMU_TASK_STK_SIZE               2048u
 #define APP_CFG_ULTRASONIC_SENSOR_TASK_STK_SIZE 1024u
-#define OTA_TRIG_TASK_STK_SIZE                  128u
+#define OTA_TRIG_TASK_STK_SIZE                  256u
 #define APP_CFG_COMM_TASK_STK_SIZE              1024u
 
 

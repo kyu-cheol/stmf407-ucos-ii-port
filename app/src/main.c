@@ -28,12 +28,12 @@ static void AppTaskComm(void *p_arg);
 
 OS_TMR *my_timer;
 OS_EVENT *UartMutex = NULL;
-OS_EVENT *LeftEncoderMbox;
+OS_EVENT *WheelOdometryMbox;
 OS_EVENT *HCSR04DurationMbox;
 OS_EVENT *ButtonSem;
 
-// 20ms 제어 주기에 맞춘 dt 설정
-#define dt 0.1f
+// 50ms 제어 주기에 맞춘 dt 설정
+#define DT 0.1f
 
 // 속도 제어 게인값 (상황에 맞게 튜닝 필요)
 #define P_GAIN_FAST 25.0f
@@ -128,7 +128,7 @@ static void AppTaskStart(void *p_arg)
 	
 	UartMutex = OSMutexCreate(3u, &err);
 	//MissileEventFlags = OSFlagCreate(0x00, &err);
-	LeftEncoderMbox = OSMboxCreate((void *)0);
+	WheelOdometryMbox = OSMboxCreate((void *)0);
 	HCSR04DurationMbox = OSMboxCreate((void *)0);
 	ButtonSem = OSSemCreate(0);
 
@@ -185,103 +185,132 @@ static void AppTaskStart(void *p_arg)
 	OSTaskDel(OS_PRIO_SELF);
 }
 
+typedef struct {
+    // 하드웨어 설정
+    TIM_x *enc_timer;      		 // 엔코더 타이머 (예: TIM3, TIM4)
+    volatile uint32_t *ccr_reg;  // PWM output레지스터 (예: &TIM1->CCR1)
+    
+    // 제어 한 주기 당 발생한 펄스를 계산하기 위한 변수
+    uint16_t last_cnt;
+
+    float current_rpm;
+    float target_rpm;
+    
+    // PID 변수
+    float realError;
+    float errorGap;
+    float accError;
+    float pControl, iControl, dControl;
+} MotorController;
+
+typedef struct {
+    int16_t left_diff;
+    int16_t right_diff;
+} WheelDiffData;
+
+static WheelDiffData g_wheel_data;
+
+volatile int32_t enc_pos_left;
+
+static int16_t update_encoder_diff(MotorController *motor)
+{
+	uint16_t current_cnt = (uint16_t)(motor->enc_timer->CNT);
+	int16_t diff = (int16_t)(current_cnt - motor->last_cnt);	// 16비트 언더/오버플로우 자동보정
+	motor->last_cnt = current_cnt;
+
+	return diff;
+}
+
+volatile float debug_rpm_left;
+
+static void update_motor_pid(MotorController *motor, int16_t diff)
+{
+	uint32_t pulse_cnt = (diff < 0) ? -diff : diff;
+	//motor->current_rpm = (float)pulse_cnt * 0.30303f;	// (60 * pulse_cnt) / (0.05 * 11 * 90 * 4)
+	motor->current_rpm = (float)pulse_cnt * 0.2435f;
+	debug_rpm_left = motor->current_rpm;	// debugging 용 코드
+
+	if (motor->target_rpm == 0.0f) {
+		motor->accError = 0.0f;
+		motor->realError = 0.0f;
+		motor->errorGap = 0.0f;
+
+		motor->pControl = motor->iControl = motor->dControl = 0.0f;
+	}
+	else {
+		motor->errorGap = motor->target_rpm - motor->current_rpm - motor->realError;
+		motor->realError = motor->target_rpm - motor->current_rpm;
+		motor->accError += motor->realError * DT;
+
+		float p_gain = (motor->target_rpm <= 30.0f) ? P_GAIN_SLOW : P_GAIN_FAST;
+		float i_gain = (motor->target_rpm <= 30.0f) ? I_GAIN_SLOW : I_GAIN_FAST;
+		float d_gain = (motor->target_rpm <= 30.0f) ? D_GAIN_SLOW : D_GAIN_FAST;
+
+		motor->pControl = p_gain * motor->realError;
+		motor->iControl = i_gain * motor->accError;
+		motor->dControl = d_gain * (motor->errorGap / DT);
+	}
+
+	float output = motor->pControl + motor->iControl + motor->dControl;
+
+	if (output < 0.0f) {
+		output = 0.0f;
+	}
+	if (output > 999.0f) {
+		output = 999.0f;
+	}
+
+	*(motor->ccr_reg) = (uint16_t)output;
+}
 
 static void MotorSpeedControlTask(void *p_arg)
 {
 	INT32U last_wake_time;
-	int32_t local_target_rpm;
-	uint32_t pulse_cnt;
-
-	// 하드웨어 타이머 연산용 변수 추가
-    uint16_t current_cnt = 0;
-    uint16_t last_cnt = 0;
-    int16_t encoder_diff = 0;
+	(void)p_arg;
 
 #if OS_CRITICAL_METHOD == 3
 	OS_CPU_SR cpu_sr = 0;
 #endif
 
-	last_cnt = (uint16_t)(TIM3->CNT);
+	MotorController left_motor = {
+		.enc_timer = TIM3,
+		.ccr_reg = &(TIM1->CCR1),
+		.last_cnt = (uint16_t)TIM3->CNT,
+		.current_rpm = 0.0f,
+		.target_rpm = 0.0f,
+		.realError = 0.0f
+	};
+
+	// target_rpm_left 수신 시 부호에 따라 처리해야 함.
+	wheel_left_forward();	// debugging 용
+
 	last_wake_time = OSTimeGet();
 
-	/* 100ms 주기로 DC 바퀴의 속도 제어 */
 	while (1) {
-		//s_printf("[%d]\r\n", target_rpm);
-
-		// 현재 encoder 펄스 수 가져옴
+		// 각 바퀴의 목표 속도 설정
+		// target_rpm_left 변수는 상위 로직에서 절댓값 처리 후 모터 방향을 설정해야 함.
 		OS_ENTER_CRITICAL();
-		local_target_rpm = target_rpm;
-		OS_EXIT_CRITICAL();
-		
-		current_cnt = (uint16_t)(TIM3->CNT);
-        
-        // 16비트 정수 차이 연산 후 int16_t 강제 형변환
-        // -> 0에서 65535로 튀는 언더플로우나 65535에서 0으로 넘치는 오버플로우가 자동 보정됩니다.
-        encoder_diff = (int16_t)(current_cnt - last_cnt);
-        last_cnt = current_cnt; // 다음 주기를 위해 현재 값을 저장
-
-        // 음수(역회전)로 들어온 이동량도 양수(펄스 수 변위)로 변경해 줍니다.
-        pulse_cnt = (encoder_diff < 0) ? -encoder_diff : encoder_diff;
-        
-        // 정방향/역방향 부호가 살아있는 누적 위치 데이터가 필요하다면 사용하세요.
-		OS_ENTER_CRITICAL();
-        enc_pos_cnt += encoder_diff;
+		//left_motor.target_rpm = target_rpm_left;
+		left_motor.target_rpm = linear_x;
 		OS_EXIT_CRITICAL();
 
-		// 100ms 동안의 펄스 수로 RPM 계산
-		current_rpm = (float)pulse_cnt * 0.2435f; // (60 * pulse_cnt) / (0.1 * 11 * 56 * 4)
+		// 각 바퀴가 한 주기 동안 움직이며 발생한 펄스 측정
+		int16_t left_diff = update_encoder_diff(&left_motor);
 
-		if (local_target_rpm == 0) {
-			accError = 0.0f;  // 과거에 쌓인 모든 적분 찌꺼기를 깨끗하게 청소
-            realError = 0.0f;
-            errorGap = 0.0f;
+		// encoder 펄스 누적
+		OS_ENTER_CRITICAL();
+		enc_pos_left += left_diff;
+		OS_EXIT_CRITICAL();
 
-            pControl = 0.0f;
-            iControl = 0.0f;
-            dControl = 0.0f;
-		}
-		else {
-			// PID 오차 계산
-			errorGap = (float)local_target_rpm - current_rpm - realError;
-			realError = (float)local_target_rpm - current_rpm;
-			accError += realError * dt;
+		// 한 주기 동안 발생한 펄스를 통해 속도 PID 제어
+		update_motor_pid(&left_motor, left_diff);
 
-			// // I항 누적 한계치 설정
-			// float max_i_limit = 900.0f / I_GAIN_SPEED; 
-        	// if (accError > max_i_limit)  accError = max_i_limit;
-        	// if (accError < -max_i_limit) accError = -max_i_limit;
+		// Wheel Odometry 연산을 위해 UpdateWheelOdometry 태스크로 데이터 전송 및 동기화
+		g_wheel_data.left_diff = left_diff;
+		g_wheel_data.right_diff = 0;
+		OSMboxPost(WheelOdometryMbox, (void *)&g_wheel_data);
 
-			// PID 제어량 계산
-			if (local_target_rpm <= 30) {
-				pControl = P_GAIN_SLOW * realError;
-				iControl = I_GAIN_SLOW * accError;
-				dControl = D_GAIN_SLOW * (errorGap / dt);
-			}
-			else {
-				pControl = P_GAIN_FAST * realError;
-				iControl = I_GAIN_FAST * accError;
-				dControl = D_GAIN_FAST * (errorGap / dt);
-			}
-		}
-
-		float amount_of_control = pControl + iControl + dControl;
-
-		if (amount_of_control < 0.0f) {
-			amount_of_control = 0.0f;
-		}
-		if (amount_of_control > 999.0f) {
-			amount_of_control = 999.0f;
-		}
-
-		// 왼쪽 모터 최종 제어량 업데이트
-		TIM1->CCR1 = (uint16_t)amount_of_control;
-
-		// Wheel odometry 계산을 위한 encoder_diff 변수를 mailbox로 post
-		static int32_t mailbox_buf;
-		mailbox_buf = (int32_t)encoder_diff;
-
-		OSMboxPost(LeftEncoderMbox, (void *)&mailbox_buf);
-
+		// 50ms 주기로 제어
 		TimeDlyUntil(&last_wake_time, 100);
 	}
 }
@@ -371,7 +400,7 @@ static void UpdateWheelOdometry(void *p_arg)
 	while (1) {
 		// encoder_diff 변수 값을 받기 위해 waiting
 		// 오른쪽 바퀴 pid제어 코드도 완성되면 구조체 포인터로 양쪽 diff 변수를 받아야 함
-		pLeftDiff = (int32_t *)OSMboxPend(LeftEncoderMbox, 0, &err);
+		pLeftDiff = (int32_t *)OSMboxPend(WheelOdometryMbox, 0, &err);
 
 		if (err == OS_ERR_NONE && pLeftDiff != NULL) {
 			left_encoder_delta = *pLeftDiff;
@@ -395,7 +424,7 @@ void delay_us(uint32_t us)
 {
 	uint32_t start_val = TIM2->CNT;
 
-	while ((uint16_t)(TIM2->CNT - start_val) < us);
+	while ((uint32_t)(TIM2->CNT - start_val) < us);
 }
 
 #define FILTER_SIZE 5
@@ -564,14 +593,15 @@ static void AppTaskComm(void *p_arg)
 		//s_printf("distance : %f\r\n", left_wheel_distance);
 
 		//s_printf("target rpm : %d\r\n", target_rpm);
-		if (uart_idle_flag) {
-			uart_idle_flag = 0;
+		// if (uart_idle_flag) {
+		// 	uart_idle_flag = 0;
 
-			s_printf("linear_x : %f\r\nangular_z : %f\r\n\r\n", linear_x, angular_z);
-		}
+		// 	s_printf("linear_x : %f\r\nangular_z : %f\r\n\r\n", linear_x, angular_z);
+		// }
 		//s_printf("%d\r\n", rx_count);
-		//s_printf("&rx_count = %08X\r\n", (unsigned int)&rx_count);
+		
+		s_printf("current rpm : %f\r\n", debug_rpm_left);
 
-		//OSTimeDly(1000);
+		OSTimeDly(500);
     }
 }
