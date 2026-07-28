@@ -74,5 +74,6 @@ void timer_start_PWM(TIM_x *tim, uint8_t channel, GPIO_Port *gpiox, uint8_t pin,
 void timer_stop(TIM_x *tim);
 void timer_deinit(TIM_x *tim);
 void timer3_encoder_init(void);
+void timer5_encoder_init(void);
 
 #endif

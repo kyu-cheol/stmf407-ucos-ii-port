@@ -29,6 +29,18 @@ static void timer_reset(TIM_x *tim)
 		RCC_APB1_CLOCK_RST &= ~TIM4_APB1_CLOCK_ER_VAL;
 	}
 
+	if (tim == TIM5) {
+		RCC_APB1_CLOCK_RST |= TIM5_APB1_CLOCK_ER_VAL;
+		__asm__ volatile ("DMB");
+		RCC_APB1_CLOCK_RST &= ~TIM5_APB1_CLOCK_ER_VAL;
+	}
+
+	if (tim == TIM8) {
+		RCC_APB2_CLOCK_RST |= TIM8_APB2_CLOCK_ER_VAL;
+		__asm__ volatile ("DMB");
+		RCC_APB2_CLOCK_RST &= ~TIM8_APB2_CLOCK_ER_VAL;
+	}
+
 	if (tim == TIM9) {
 		RCC_APB2_CLOCK_RST |= TIM9_APB2_CLOCK_ER_VAL;
 		__asm__ volatile ("DMB");
@@ -56,6 +68,16 @@ static void timer_enable_clock(TIM_x *tim)
 	if (tim == TIM4) {
 		timer_reset(tim);
 		RCC_APB1_CLOCK_ER |= TIM4_APB1_CLOCK_ER_VAL;
+	}
+
+	if (tim == TIM5) {
+		timer_reset(tim);
+		RCC_APB1_CLOCK_ER |= TIM5_APB1_CLOCK_ER_VAL;
+	}
+
+	if (tim == TIM8) {
+		timer_reset(tim);
+		RCC_APB2_CLOCK_ER |= TIM8_APB2_CLOCK_ER_VAL;
 	}
 
 	if (tim == TIM9) {
@@ -256,4 +278,38 @@ void timer3_encoder_init(void)
 
 	// TIM3 구동 시작
 	TIM3->CR1 |= (1 << 0);
+}
+
+void timer5_encoder_init(void)
+{
+	// GPIO mode, pull-up, AF 설정
+	gpio_set_mode(GPIOA, 0, GPIO_MODE_AF);
+	gpio_set_pupd(GPIOA, 0, GPIO_PUPD_PU);
+    
+	gpio_set_mode(GPIOA, 1, GPIO_MODE_AF);
+	gpio_set_pupd(GPIOA, 1, GPIO_PUPD_PU);
+
+	gpio_set_af(GPIOA, 0, TIM3_5_PIN_AF);
+	gpio_set_af(GPIOA, 1, TIM3_5_PIN_AF);
+
+	// TIM5 clock enable
+	timer_enable_clock(TIM5);
+
+	TIM5->CR1 = 0;   // disable timer counter
+
+	// Encoder Mode 3 설정 (4체배 방식)
+	TIM5->SMCR &= ~(0x07);
+	TIM5->SMCR |= (3 << 0);
+
+	// channel 1핀과 channel 2핀을 각각 TI1, TI2에 매핑
+	TIM5->CCMR1 &= ~((3 << 0) | (3 << 8));
+	TIM5->CCMR1 |= ((1 << 0) | (1 << 8));
+
+	// Polarity를 default edge 값으로 설정 (rising edge)
+	TIM5->CCER &= ~((1 << 1) | (1 << 3) | (1 << 5) | (1 << 7));
+
+	TIM5->ARR = 0xFFFF;
+
+	// TIM5 구동 시작
+	TIM5->CR1 |= (1 << 0);
 }

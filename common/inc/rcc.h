@@ -36,10 +36,12 @@ typedef struct RCC_TYPEDEF {
 #define TIM2_APB1_CLOCK_ER_VAL  (1 << 0)
 #define TIM3_APB1_CLOCK_ER_VAL  (1 << 1)
 #define TIM4_APB1_CLOCK_ER_VAL  (1 << 2)
+#define TIM5_APB1_CLOCK_ER_VAL  (1 << 3)
 #define UART3_APB1_CLOCK_ER_VAL (1 << 18)
 
 /* APB2 */
 #define TIM1_APB2_CLOCK_ER_VAL	 (1 << 0)
+#define TIM8_APB2_CLOCK_ER_VAL   (1 << 1)
 #define SPI1_APB2_CLOCK_ER_VAL   (1 << 12)
 #define SYSCFG_APB2_CLOCK_ER_VAL (1 << 14)
 #define TIM9_APB2_CLOCK_ER_VAL   (1 << 16)
