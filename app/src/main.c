@@ -661,7 +661,7 @@ static void AppTaskComm(void *p_arg)
 		// }
 		//s_printf("%d\r\n", rx_count);
 		
-		s_printf("current rpm : %f %d\r\n", right_motor.current_rpm, *(right_motor.ccr_reg));
+		s_printf("current rpm : %f %f\r\n", left_motor.current_rpm, right_motor.current_rpm);
 
 		OSTimeDly(500);
     }
