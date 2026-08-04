@@ -40,7 +40,7 @@ static inline void nvic_irq_setprio(uint8_t n, uint8_t prio)
 {
 	volatile uint8_t *nvic_ipri = (volatile uint8_t *)(NVIC_IPRI_BASE + n);
 
-	*nvic_ipri = prio;
+	*nvic_ipri = (uint8_t)(prio << 4);
 }
 
 #endif

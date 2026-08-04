@@ -253,7 +253,7 @@ static void ComputeTargetRpmTask(void *p_arg)
 			OS_EXIT_CRITICAL();
 
 			//s_printf("%f %f\r\n", local_v, local_w);
-			s_printf("RAW: %02X %02X %02X %02X | VAL: %f\r\n", g_cmd_vel_buffer[0], g_cmd_vel_buffer[1], g_cmd_vel_buffer[2], g_cmd_vel_buffer[3], local_v);
+			//s_printf("RAW: %02X %02X %02X %02X | VAL: %f\r\n", g_cmd_vel_buffer[0], g_cmd_vel_buffer[1], g_cmd_vel_buffer[2], g_cmd_vel_buffer[3], local_v);
 			
 			// 양쪽 바퀴의 목표 속도 계산 (m/s)
 			v_left = local_v - (local_w * WHEEL_TREAD / 2.0f);
