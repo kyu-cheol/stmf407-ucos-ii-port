@@ -88,7 +88,7 @@ extern  "C" {                                    /* See Note #1.                
 */
 
 #ifndef  OS_CPU_EXCEPT_STK_SIZE
-#define  OS_CPU_EXCEPT_STK_SIZE      256u        /* Default exception stack size is 256 OS_STK entries */
+#define  OS_CPU_EXCEPT_STK_SIZE      4096u        /* Default exception stack size is 256 OS_STK entries */
 #endif
 
 // #if (defined(__VFP_FP__) && !defined(__SOFTFP__))

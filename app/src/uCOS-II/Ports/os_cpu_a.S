@@ -51,10 +51,10 @@
     .global  OSIntCtxSw
     .global  OS_CPU_PendSVHandler
 
-#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
+@#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
     .global  OS_CPU_FP_Reg_Push
     .global  OS_CPU_FP_Reg_Pop
-#endif
+@#endif
 
 
 @********************************************************************************************************
@@ -88,7 +88,7 @@
 @              b) Update OSTCBCur->OSTCBStkPtr;
 @********************************************************************************************************
 
-#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
+@#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
 
 .thumb_func
 OS_CPU_FP_Reg_Push:
@@ -101,7 +101,7 @@ OS_CPU_FP_Reg_Push:
     STR     R0, [R2]
 OS_CPU_FP_nosave:
     BX      LR
-#endif
+@#endif
 
 
 @********************************************************************************************************
@@ -115,7 +115,7 @@ OS_CPU_FP_nosave:
 @              b) Update OSTCBHighRdy->OSTCBStkPtr pointer of new proces stack;
 @********************************************************************************************************
 
-#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
+@#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
 
 .thumb_func
 OS_CPU_FP_Reg_Pop:
@@ -124,7 +124,7 @@ OS_CPU_FP_Reg_Pop:
     LDR     R2, [R1]
     STR     R0, [R2]
     BX      LR
-#endif
+@#endif
 
 
 @********************************************************************************************************
@@ -231,10 +231,10 @@ OSStartHighRdy:
 
     @ 인터럽트 전용 스택을 사용하도록 설정 하면서 MSP값을 0으로 만들어 버리는 버그 발생
     @ 해당 부분을 주석처리해서 핸들러들도 이전에 쓰던 MSP 이어서 사용하도록 변경
-    @MOVW    R0, #:lower16:OS_CPU_ExceptStkBase                  @ Initialize the MSP to the OS_CPU_ExceptStkBase
-    @MOVT    R0, #:upper16:OS_CPU_ExceptStkBase
-    @LDR     R1, [R0]
-    @MSR     MSP, R1
+    MOVW    R0, #:lower16:OS_CPU_ExceptStkBase                  @ Initialize the MSP to the OS_CPU_ExceptStkBase
+    MOVT    R0, #:upper16:OS_CPU_ExceptStkBase
+    LDR     R1, [R0]
+    MSR     MSP, R1
 
     BL      OSTaskSwHook                                        @ Call OSTaskSwHook() for FPU Push & Pop
 

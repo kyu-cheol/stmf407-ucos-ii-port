@@ -26,9 +26,21 @@ typedef struct DMA_X {
 #define DMA1         ((DMA_x *) DMA1_BASE)
 #define DMA2         ((DMA_x *) DMA2_BASE)
 
+#define DMA_LISR_TEIF1       (0x1U << 9)
+#define DMA_LISR_TCIF1       (0x1U << 11)
+#define DMA_LIFCR_CTCIF1     (0x1U << 11)
+#define DMA_LIFCR_CHTIF1     (0x1U << 10)
+#define DMA_LIFCR_CTEIF1     (0x1U << 9)
+#define DMA_LIFCR_CDMEIF1    (0x1U << 8)
+#define DMA_LIFCR_CFEIF1     (0x1U << 6)
+
+
 #define DMA_SxCR_EN          (0x1U << 0)   // Bit 0  : Stream Enable
+#define DMA_SxCR_TEIE        (0x1U << 2)   // Bit 2  : Transfer error interrupt enable
+#define DMA_SxCR_TCIE        (0x1U << 4)   // Bit 4  : Transfer complete interrupt enable
 #define DMA_SxCR_CIRC        (0x1U << 8)   // Bit 8  : Circular Mode
 #define DMA_SxCR_MINC        (0x1U << 10)  // Bit 10 : Memory Increment Mode
+#define DMA_SxCR_DIR_Pos     (6U)          // Bit 6 ~ 7   : Memory to peripheral
 #define DMA_SxCR_CHSEL_Pos   (25U)         // Bit 25 ~ 27 : Channel Selection Position
 
 #endif

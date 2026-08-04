@@ -13,11 +13,12 @@ extern uint32_t *END_STACK;
 
 extern void isr_systick(void);
 //extern void isr_tim2(void);
+extern void isr_dma1_stream1(void);
 extern void isr_tim4(void);
 extern void isr_exti4(void);
 //extern void isr_exti9_5(void);
 extern void isr_spi1(void);
-extern void isr_uart3(void);
+//extern void isr_uart3(void);
 extern void OS_CPU_SysTickHandler(void);
 extern void OS_CPU_PendSVHandler(void);
 
@@ -89,7 +90,7 @@ void (* const IV[])(void) =
     isr_empty,              // EXTI3_IRQ 9
     isr_exti4,              // EXTI4_IRQ 10
     isr_empty,              // DMA1_STREAM0_IRQ 11
-    isr_empty,              // DMA1_STREAM1_IRQ 12
+    isr_dma1_stream1,       // DMA1_STREAM1_IRQ 12
     isr_empty,              // DMA1_STREAM2_IRQ 13
     isr_empty,              // DMA1_STREAM3_IRQ 14
     isr_empty,              // DMA1_STREAM4_IRQ 15
@@ -116,7 +117,7 @@ void (* const IV[])(void) =
     isr_empty,              // SPI2_IRQ 36
     isr_empty,              // USART1_IRQ 37
     isr_empty,              // USART2_IRQ 38
-    isr_uart3,              // USART3_IRQ 39
+    isr_empty,              // USART3_IRQ 39
     isr_empty,              // EXTI15_10_IRQ 40
     isr_empty,              // RTC_ALARM_IRQ 41
     isr_empty,              // USB_FS_WKUP_IRQ 42

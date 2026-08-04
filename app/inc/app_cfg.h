@@ -52,11 +52,13 @@
 
 #define  APP_CFG_STARTUP_TASK_PRIO          3u
 
-#define APP_CFG_GUIDANCE_TASK_PRIO          10u
-#define APP_CFG_IMU_TASK_PRIO               11u
-#define APP_CFG_ULTRASONIC_SENSOR_TASK_PRIO 12u
+#define COMPUTE_TARGET_RPM_TASK_PRIO        10u
+#define APP_CFG_GUIDANCE_TASK_PRIO          11u
+#define APP_CFG_IMU_TASK_PRIO               12u
+#define APP_CFG_ULTRASONIC_SENSOR_TASK_PRIO 13u
 #define OTA_TRIG_TASK_PRIO                  20u
-#define APP_CFG_COMM_TASK_PRIO              13U
+#define APP_CFG_BATTERY_CHECK_TASK_PRIO     21u
+#define APP_CFG_COMM_TASK_PRIO              14U
 
 #define  OS_TASK_TMR_PRIO                  (OS_LOWEST_PRIO - 2u)
 
@@ -70,10 +72,12 @@
 
 #define  APP_CFG_STARTUP_TASK_STK_SIZE          256u
 
+#define COMPUTE_TARGET_RPM_TASK_STK_SIZE        4096u
 #define APP_CFG_GUIDANCE_TASK_STK_SIZE          4096u
-#define APP_CFG_IMU_TASK_STK_SIZE               2048u
-#define APP_CFG_ULTRASONIC_SENSOR_TASK_STK_SIZE 1024u
-#define OTA_TRIG_TASK_STK_SIZE                  256u
+#define APP_CFG_IMU_TASK_STK_SIZE               4096u
+#define APP_CFG_ULTRASONIC_SENSOR_TASK_STK_SIZE 4096u
+#define OTA_TRIG_TASK_STK_SIZE                  1024u
+#define BATTERY_CHECK_TASK_STK_SIZE             2048u
 #define APP_CFG_COMM_TASK_STK_SIZE              1024u
 
 

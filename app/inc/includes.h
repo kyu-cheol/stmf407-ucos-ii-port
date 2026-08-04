@@ -17,6 +17,8 @@
 #include "spi.h"
 #include "flash.h"
 #include "wheel.h"
+#include "adc.h"
+#include "rcc.h"
 
 #include  <ucos_ii.h>  // uCOS-II 코어 헤더
 #include  <os_cpu.h>   // 포팅 아키텍처 헤더

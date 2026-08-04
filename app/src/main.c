@@ -5,6 +5,9 @@ __attribute__((aligned(8)))
 static OS_STK AppTaskStartStk[APP_CFG_STARTUP_TASK_STK_SIZE];
 
 __attribute__((aligned(8)))
+static OS_STK ComputeTargetRpmTaskStk[COMPUTE_TARGET_RPM_TASK_STK_SIZE];
+
+__attribute__((aligned(8)))
 static OS_STK AppTaskGuidanceStk[APP_CFG_GUIDANCE_TASK_STK_SIZE];
 
 __attribute__((aligned(8)))
@@ -17,16 +20,22 @@ __attribute__((aligned(8)))
 static OS_STK OTATrigTaskStk[OTA_TRIG_TASK_STK_SIZE];
 
 __attribute__((aligned(8)))
+static OS_STK BatteryCheckTaskStk[BATTERY_CHECK_TASK_STK_SIZE];
+
+__attribute__((aligned(8)))
 static OS_STK AppTaskCommStk[APP_CFG_COMM_TASK_STK_SIZE];
 
 static void AppTaskStart(void *p_arg);
+static void ComputeTargetRpmTask(void *p_arg);
 static void MotorSpeedControlTask(void *p_arg);
 static void UpdateWheelOdometry(void *p_arg);
 static void UltrasonicSensorTask(void *p_arg);
 static void OTATrigTask(void *p_arg);
+static void BatteryCheckTask(void *p_arg);
 static void AppTaskComm(void *p_arg);
 
 OS_TMR *my_timer;
+OS_EVENT *g_cmd_vel_sem;
 OS_EVENT *UartMutex = NULL;
 OS_EVENT *WheelOdometryMbox;
 OS_EVENT *HCSR04DurationMbox;
@@ -43,21 +52,8 @@ OS_EVENT *ButtonSem;
 #define I_GAIN_SLOW 4.0f
 #define D_GAIN_SLOW 0.0f
 
-#define R 0.065f	// 바퀴 반지름
-
 //extern volatile uint32_t enc_pulse_edge_cnt; // EXTI 인터럽트에서 증가하는 펄스 수
 volatile int32_t enc_pos_cnt;
-
-volatile float current_rpm = 0.0;            // 현재 RPM
-extern volatile int32_t target_rpm;          // 목표 RPM
-
-volatile float realError = 0.0;
-volatile float accError = 0.0;
-volatile float errorGap = 0.0;
-
-volatile float pControl = 0.0;
-volatile float iControl = 0.0;
-volatile float dControl = 0.0;
 
 volatile float left_wheel_distance;
 
@@ -67,12 +63,12 @@ extern uint8_t target_rpm_update_flag;
 extern volatile uint32_t rx_count;
 uint8_t g_cmd_vel_buffer[8];
 
-extern float linear_x;
-extern float angular_z;
-extern uint8_t uart_idle_flag;
+float linear_x;
+float angular_z;
 
 //void spi_rx_handler(SPI_x *SPIx, uint8_t data);
 void HCSR04_sensor_init(void);
+void ADC1_bat_check_init(void);
 
 void BSP_Init(void)
 {	
@@ -100,8 +96,12 @@ void BSP_Init(void)
 	// 초음파 센서 초기화
 	HCSR04_sensor_init();
 
-	// rp4 --> STM uart DMA 수신 설정
+	// rp4 --> STM cmd_vel DMA 수신 설정
 	uart3_dma_rx_init(g_cmd_vel_buffer, sizeof(g_cmd_vel_buffer));
+	uart3_dma_tx_init();
+
+	// 배터리 전압 체크를 위한 ADC 초기화
+	ADC1_bat_check_init();
 }
 
 void main(void)
@@ -127,16 +127,31 @@ static void AppTaskStart(void *p_arg)
 	// 시스템에서 사용되는 peripherals init
 	BSP_Init();
 
+	// wheel_left_forward();
+	// wheel_right_forward();
+	// while(1);
+
 	// Systick 인터럽트 최하위 우선순위 부여후 실행
 	// OSStart 이후에 호출되어야 함.
 	// task들 생성하기 전에 먼저 켜도 되는건가?
 	OS_CPU_SysTickInitFreq(CPU_FREQ);
 	
+	g_cmd_vel_sem = OSSemCreate(0);
 	UartMutex = OSMutexCreate(3u, &err);
 	//MissileEventFlags = OSFlagCreate(0x00, &err);
 	WheelOdometryMbox = OSMboxCreate((void *)0);
 	HCSR04DurationMbox = OSMboxCreate((void *)0);
 	ButtonSem = OSSemCreate(0);
+
+	OSTaskCreateExt((void (*)(void *)) ComputeTargetRpmTask,
+                    (void *) 0,
+                    (OS_STK *) &ComputeTargetRpmTaskStk[COMPUTE_TARGET_RPM_TASK_STK_SIZE - 1],
+                    (INT8U)    COMPUTE_TARGET_RPM_TASK_PRIO,
+                    (INT16U)   COMPUTE_TARGET_RPM_TASK_PRIO, // ID는 보통 우선순위와 동일하게 부여합니다.
+                    (OS_STK *) &ComputeTargetRpmTaskStk[0],     // 스택 바닥(최하위) 주소
+                    (INT32U)   COMPUTE_TARGET_RPM_TASK_STK_SIZE,
+                    (void *)   0,
+                    (INT16U)  (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR | OS_TASK_OPT_SAVE_FP)); // ★ FPU 백업 옵션 추가
 
 	/* 1. Motor Speed Control Task 생성 (FPU 지원) */
     OSTaskCreateExt((void (*)(void *)) MotorSpeedControlTask,
@@ -171,11 +186,27 @@ static void AppTaskStart(void *p_arg)
                     (void *)   0,
                     (INT16U)  (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR | OS_TASK_OPT_SAVE_FP)); // ★ FPU 백업 옵션 추가
 
-	OSTaskCreate((void (*)(void *))OTATrigTask,
-    			 (void *)0,
-    			 &OTATrigTaskStk[OTA_TRIG_TASK_STK_SIZE - 1],
-    			 OTA_TRIG_TASK_PRIO);
+	OSTaskCreateExt((void (*)(void *)) OTATrigTask,
+                (void *) 0,
+                (OS_STK *) &OTATrigTaskStk[OTA_TRIG_TASK_STK_SIZE - 1],
+                (INT8U)    OTA_TRIG_TASK_PRIO,
+                (INT16U)   OTA_TRIG_TASK_PRIO,
+                (OS_STK *) &OTATrigTaskStk[0],
+                (INT32U)   OTA_TRIG_TASK_STK_SIZE,
+                (void *)   0,
+                (INT16U)  (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR | OS_TASK_OPT_SAVE_FP));
 	
+	OSTaskCreateExt((void (*)(void *)) BatteryCheckTask,
+                    (void *) 0,
+                    (OS_STK *) &BatteryCheckTaskStk[BATTERY_CHECK_TASK_STK_SIZE - 1],
+                    (INT8U)    APP_CFG_BATTERY_CHECK_TASK_PRIO,
+                    (INT16U)   APP_CFG_BATTERY_CHECK_TASK_PRIO,
+                    (OS_STK *) &BatteryCheckTaskStk[0],
+                    (INT32U)   BATTERY_CHECK_TASK_STK_SIZE,
+                    (void *)   0,
+                    (INT16U)  (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR | OS_TASK_OPT_SAVE_FP)); // ★ FPU 백업 옵션 추가
+
+
     /* 3. Communication Task 생성 (FPU 지원) */
     OSTaskCreateExt((void (*)(void *)) AppTaskComm,
                     (void *) 0,
@@ -189,6 +220,67 @@ static void AppTaskStart(void *p_arg)
 				 
 	s_printf("uC/OS-II RTOS Initialization complete. Deleting Start Task...\r\n");
 	OSTaskDel(OS_PRIO_SELF);
+}
+
+#define WHEEL_RADIUS 0.075f		// 6인치(15cm) 바퀴
+#define WHEEL_TREAD  0.400f
+#define PI			 3.141592f
+
+float target_rpm_left;
+float target_rpm_right;
+
+static void ComputeTargetRpmTask(void *p_arg)
+{
+	(void)p_arg;
+	INT8U err;
+
+	float local_v, local_w;
+	float v_left, v_right;
+
+#if OS_CRITICAL_METHOD == 3
+	OS_CPU_SR cpu_sr = 0;
+#endif
+
+	while (1) {
+		OSSemPend(g_cmd_vel_sem, 0, &err);
+
+		if (err == OS_ERR_NONE) {
+			OS_ENTER_CRITICAL();
+			// local_v = linear_x;
+			// local_w = angular_z;
+			memcpy(&local_v, &g_cmd_vel_buffer[0], sizeof(float));
+        	memcpy(&local_w, &g_cmd_vel_buffer[4], sizeof(float));
+			OS_EXIT_CRITICAL();
+
+			//s_printf("%f %f\r\n", local_v, local_w);
+			s_printf("RAW: %02X %02X %02X %02X | VAL: %f\r\n", g_cmd_vel_buffer[0], g_cmd_vel_buffer[1], g_cmd_vel_buffer[2], g_cmd_vel_buffer[3], local_v);
+			
+			// 양쪽 바퀴의 목표 속도 계산 (m/s)
+			v_left = local_v - (local_w * WHEEL_TREAD / 2.0f);
+			v_right = local_v + (local_w * WHEEL_TREAD / 2.0f);
+
+			// 양쪽 바퀴의 목표 속도를 목표 rpm으로 변환 후 부호에 맞게 모터 방향 설정
+			OS_ENTER_CRITICAL();
+			target_rpm_left = (v_left * 60.0f) / (2 * PI * WHEEL_RADIUS);
+			if (target_rpm_left < 0.0f) {
+				target_rpm_left *= -1;
+				wheel_left_backward();
+			}
+			else {
+				wheel_left_forward();
+			}
+
+			target_rpm_right = (v_right * 60.0f) / (2 * PI * WHEEL_RADIUS);
+			if (target_rpm_right < 0.0f) {
+				target_rpm_right *= -1;
+				wheel_right_backward();
+			}
+			else {
+				wheel_right_forward();
+			}
+			OS_EXIT_CRITICAL();
+		}
+	}
 }
 
 typedef struct {
@@ -281,7 +373,7 @@ static int16_t update_encoder_diff(MotorController *motor)
 //     return ff_ccr;
 // }
 
-static void update_motor_pid(MotorController *motor, int16_t diff)
+static uint16_t update_motor_pid(MotorController *motor, int16_t diff)
 {
 	uint32_t pulse_cnt = (diff < 0) ? -diff : diff;
 	motor->current_rpm = (float)pulse_cnt * 0.30303f;	// (60 * pulse_cnt) / (0.05 * 11 * 90 * 4)
@@ -297,6 +389,14 @@ static void update_motor_pid(MotorController *motor, int16_t diff)
 		motor->errorGap = motor->target_rpm - motor->current_rpm - motor->realError;
 		motor->realError = motor->target_rpm - motor->current_rpm;
 		motor->accError += motor->realError * DT;
+
+		// I항 Anti-Windup
+		// if (motor->accError > 30.0f) {
+		// 	motor->accError = 30.0f;
+		// }
+		// else if (motor->accError < -30.0f) {
+		// 	motor->accError = -30.0f;
+		// }
 
 		float contorl_diff = fabsf(motor->target_rpm - motor->current_rpm);
 
@@ -318,7 +418,7 @@ static void update_motor_pid(MotorController *motor, int16_t diff)
 		output = 999.0f;
 	}
 
-	*(motor->ccr_reg) = (uint16_t)output;
+	return (uint16_t)output;
 }
 
 static void MotorSpeedControlTask(void *p_arg)
@@ -333,9 +433,9 @@ static void MotorSpeedControlTask(void *p_arg)
 	left_motor.last_cnt = (uint16_t)left_motor.enc_timer->CNT;
     right_motor.last_cnt = (uint16_t)right_motor.enc_timer->CNT;
 
-	// target_rpm_left 수신 시 부호에 따라 처리해야 함.
-	wheel_left_forward();	// debugging 용
-	wheel_right_forward();
+	// debugging
+	// wheel_left_forward();
+	// wheel_right_forward();
 
 	last_wake_time = OSTimeGet();
 
@@ -343,10 +443,10 @@ static void MotorSpeedControlTask(void *p_arg)
 		// 각 바퀴의 목표 속도 설정
 		// target_rpm_left 변수는 상위 로직에서 절댓값 처리 후 모터 방향을 설정해야 함.
 		OS_ENTER_CRITICAL();
-		//left_motor.target_rpm = target_rpm_left;
-		//right_motor.target_rpm = target_rpm_right;
-		left_motor.target_rpm = linear_x;
-		right_motor.target_rpm = angular_z;
+		left_motor.target_rpm = target_rpm_left;
+		right_motor.target_rpm = target_rpm_right;
+		// left_motor.target_rpm = linear_x;		// debugging
+		// right_motor.target_rpm = angular_z;
 		OS_EXIT_CRITICAL();
 
 		// 각 바퀴가 한 주기 동안 움직이며 발생한 펄스 측정
@@ -359,8 +459,11 @@ static void MotorSpeedControlTask(void *p_arg)
 		OS_EXIT_CRITICAL();
 
 		// 한 주기 동안 발생한 펄스를 통해 속도 PID 제어
-		update_motor_pid(&left_motor, left_diff);
-		update_motor_pid(&right_motor, right_diff);
+		uint16_t left_ccr_output = update_motor_pid(&left_motor, left_diff);
+		uint16_t right_ccr_output =  update_motor_pid(&right_motor, right_diff);
+
+		*(left_motor.ccr_reg) = left_ccr_output;
+		*(right_motor.ccr_reg) = right_ccr_output;
 
 		// Wheel Odometry 연산을 위해 UpdateWheelOdometry 태스크로 데이터 전송 및 동기화
 		g_wheel_data.left_diff = left_diff;
@@ -374,12 +477,15 @@ static void MotorSpeedControlTask(void *p_arg)
 
 // 라즈베리파이 시리얼 전송용 구조체 정의 (바이트 정렬)
 typedef struct __attribute__((packed)) {
+	uint8_t header1;
+	uint8_t header2;
     uint32_t timestamp;        // 시간 정보 (ms)
     float    pos_x;            // 누적 X (m)
     float    pos_y;            // 누적 Y (m)
     float    theta;            // 누적 각도 (rad)
     float    linear_vel_x;     // 현재 선속도 (m/s)
     float    angular_vel_z;    // 현재 각속도 (rad/s)
+	uint8_t  checksum;         // 검증용 XOR 체크섬
 } OdomPacket_T;
 
 OdomPacket_T tx_odom_packet;   // 라즈베리파이로 보낼 전송 버퍼
@@ -387,7 +493,16 @@ OdomPacket_T tx_odom_packet;   // 라즈베리파이로 보낼 전송 버퍼
 float robot_theta = 0.0f;
 float robot_x = 0.0f;
 float robot_y = 0.0f;
-#define ROBOT_WHEEL_BASE 0.33f
+#define ROBOT_WHEEL_BASE 0.400f
+
+// odometry 패킷의 체크섬 검사
+static uint8_t calculate_checksum(const uint8_t *pData, uint16_t length) {
+    uint8_t checksum = 0;
+    for (uint16_t i = 0; i < length; i++) {
+        checksum ^= pData[i];
+    }
+    return checksum;
+}
 
 void update_robot_odometry(float left_delta, float right_delta)
 {
@@ -422,12 +537,20 @@ void update_robot_odometry(float left_delta, float right_delta)
 
     // 3. [전송 패킷 패킹] 라즈베리파이로 보낼 데이터 최종 취합
 	// 차동구동 로봇이므로 linear.y=0, linear.z=0, angular.x=0, angular.y=0
+	tx_odom_packet.header1       = 0xAA;
+    tx_odom_packet.header2       = 0x55;
     tx_odom_packet.timestamp     = OSTimeGet(); // 또는 OSTimeGet()
     tx_odom_packet.pos_x         = robot_x;
     tx_odom_packet.pos_y         = robot_y;
     tx_odom_packet.theta         = robot_theta;
     tx_odom_packet.linear_vel_x  = current_linear_vel;
     tx_odom_packet.angular_vel_z = current_angular_vel;
+
+	// 헤더부터 angular_vel_z까지의 영역만 체크섬 계산 (checksum 필드 제외)
+    uint16_t data_len = sizeof(OdomPacket_T) - sizeof(uint8_t);
+    tx_odom_packet.checksum = calculate_checksum((uint8_t *)&tx_odom_packet, data_len);
+
+	uart3_dma_send_packet((uint8_t *)&tx_odom_packet, sizeof(OdomPacket_T));
 }
 
 static void UpdateWheelOdometry(void *p_arg)
@@ -453,21 +576,21 @@ static void UpdateWheelOdometry(void *p_arg)
 
 	//last_wake_time = OSTimeGet();
 
-	/* 100ms 주기로 휠 오도메트리 데이터 출력 */
+	/* 50ms 주기로 휠 오도메트리 데이터 출력 */
 	while (1) {
 		// encoder_diff 변수 값을 받기 위해 waiting
 		// 오른쪽 바퀴 pid제어 코드도 완성되면 구조체 포인터로 양쪽 diff 변수를 받아야 함
 		pDiff = (WheelDiffData *)OSMboxPend(WheelOdometryMbox, 0, &err);
 
 		if (err == OS_ERR_NONE && pDiff != NULL) {
-			left_encoder_delta = pDiff->left_diff;
-			right_encoder_delta = pDiff->right_diff;
+			left_encoder_delta = -pDiff->left_diff;
+			right_encoder_delta = -pDiff->right_diff;
 
 			left_wheel_turns = (float)left_encoder_delta / 3960.0f;				// 11 * 4 * 90
-			left_wheel_delta = left_wheel_turns * 2.0f * 3.141592f * R;			// 2*pi*r
+			left_wheel_delta = left_wheel_turns * 2.0f * PI * WHEEL_RADIUS;		// 2*pi*r
 
 			right_wheel_turns = (float)right_encoder_delta / 3960.0f;
-			right_wheel_delta = right_wheel_turns * 2.0f * 3.141592f * R;
+			right_wheel_delta = right_wheel_turns * 2.0f * PI * WHEEL_RADIUS;
 
 			OS_ENTER_CRITICAL();
 			left_wheel_distance += left_wheel_delta;
@@ -577,6 +700,9 @@ static void UltrasonicSensorTask(void *p_arg)
 	OS_CPU_SR cpu_sr = 0;
 #endif
 
+	gpio_set_mode(GPIOE, 0, GPIO_MODE_OUTPUT);
+	gpio_write_pin(GPIOE, 0, 0);
+
 	last_wake_time = OSTimeGet();
 
 	while (1) {
@@ -607,16 +733,16 @@ static void UltrasonicSensorTask(void *p_arg)
 			}
 
 			if (filtered_distance < 30.f) {
-				led_on();
+				gpio_write_pin(GPIOE, 0, 1);
 			}
 			else {
-				led_off();
+				gpio_write_pin(GPIOE, 0, 0);
 			}
 
 			//s_printf("%f, %f\r\n", filtered_distance, distance_cm);
 		}
 		else if (err == OS_ERR_TIMEOUT) {
-			s_printf("No Detected\r\n");
+			//s_printf("No Detected\r\n");
 		}
 
 		TimeDlyUntil(&last_wake_time, 200);
@@ -641,6 +767,72 @@ static void OTATrigTask(void *p_arg)
 	}
 }
 
+#define LOW_BAT_THRESHOLD 10.5f
+
+// PB0 ADC1 Channel 8 Init
+void ADC1_bat_check_init(void)
+{
+	RCC_APB2_CLOCK_ER |= ADC1_APB2_CLOCK_ER_VAL;
+
+	gpio_set_mode(GPIOB, 0, GPIO_MODE_ANALOG);
+
+	// ADC1의 클록을 PCLK2 / 4(84M / 4)로 설정
+	ADC->CCR &= ~(3U << 16);
+	ADC->CCR |= (1U << 16);
+
+	// ADC1을 12bit resolution, scan mode disable로 설정
+	ADC1->CR1 &= ~(3U << 24);
+	ADC1->CR1 &= ~(1U << 8);
+
+	// ADC1을 right 정렬, single conversion mode로 설정
+	ADC1->CR2 &= ~(1U << 11);
+	ADC1->CR2 &= ~(1U << 1);
+
+	// ADC1 채널8의 sampling time을 84 cycle로 설정
+	ADC1->SMPR2 &= ~(7U << (8 * 3));
+	ADC1->SMPR2 |= (4U << (8 * 3));
+
+	// 변환 순서 및 개수 설정 (1개 변환, Channel 8)
+	ADC1->SQR1 &= ~(0xFU << 20);
+	ADC1->SQR3 &= ~(0x1FU << 0);
+	ADC1->SQR3 |= (8U << 0);
+
+	// ADC1 on
+	ADC1->CR2 |= (1U << 0);
+}
+
+uint16_t battery_read_raw(void)
+{
+	// Analog to Digital 변환 시작
+	ADC1->CR2 |= (1U << 30);
+
+	// 변환 완료 대기
+	while (!(ADC1->SR & (1U << 1)));
+
+	return (uint16_t)(ADC1->DR);
+}
+
+static void BatteryCheckTask(void *p_arg)
+{
+	(void)p_arg;
+	uint16_t adc_raw;
+	float battery_voltage;
+
+	while (1) {
+		adc_raw = battery_read_raw();
+
+		battery_voltage = ((float)adc_raw / 4095.0f) * 3.3f * 4.0f;
+
+		if (battery_voltage < LOW_BAT_THRESHOLD) {
+			// 부저 on
+		}
+		else {
+			// 부저 off
+		}
+
+		OSTimeDly(1000);
+	}
+}
 
 static void AppTaskComm(void *p_arg)
 {
@@ -650,6 +842,7 @@ static void AppTaskComm(void *p_arg)
     //last_wake_time = OSTimeGet();
 
     while (1) {
+		led_toggle();
 		//s_printf("rpm : %f\r\n", current_rpm);
 		//s_printf("distance : %f\r\n", left_wheel_distance);
 
@@ -661,7 +854,8 @@ static void AppTaskComm(void *p_arg)
 		// }
 		//s_printf("%d\r\n", rx_count);
 		
-		s_printf("current rpm : %f %f\r\n", left_motor.current_rpm, right_motor.current_rpm);
+		// s_printf("left  rpm : %f %d\r\n", left_motor.current_rpm, *(left_motor.ccr_reg));
+		// s_printf("right rpm : %f %d\r\n\r\n", right_motor.current_rpm, *(right_motor.ccr_reg));
 
 		OSTimeDly(500);
     }
