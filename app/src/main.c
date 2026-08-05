@@ -187,14 +187,14 @@ static void AppTaskStart(void *p_arg)
                     (INT16U)  (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR | OS_TASK_OPT_SAVE_FP)); // ★ FPU 백업 옵션 추가
 
 	OSTaskCreateExt((void (*)(void *)) OTATrigTask,
-                (void *) 0,
-                (OS_STK *) &OTATrigTaskStk[OTA_TRIG_TASK_STK_SIZE - 1],
-                (INT8U)    OTA_TRIG_TASK_PRIO,
-                (INT16U)   OTA_TRIG_TASK_PRIO,
-                (OS_STK *) &OTATrigTaskStk[0],
-                (INT32U)   OTA_TRIG_TASK_STK_SIZE,
-                (void *)   0,
-                (INT16U)  (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR | OS_TASK_OPT_SAVE_FP));
+                	(void *) 0,
+                	(OS_STK *) &OTATrigTaskStk[OTA_TRIG_TASK_STK_SIZE - 1],
+                	(INT8U)    OTA_TRIG_TASK_PRIO,
+                	(INT16U)   OTA_TRIG_TASK_PRIO,
+                	(OS_STK *) &OTATrigTaskStk[0],
+                	(INT32U)   OTA_TRIG_TASK_STK_SIZE,
+                	(void *)   0,
+                	(INT16U)  (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR | OS_TASK_OPT_SAVE_FP));
 	
 	OSTaskCreateExt((void (*)(void *)) BatteryCheckTask,
                     (void *) 0,
