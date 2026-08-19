@@ -278,6 +278,7 @@ static void ComputeTargetRpmTask(void *p_arg)
 			else {
 				wheel_right_forward();
 			}
+			
 			OS_EXIT_CRITICAL();
 		}
 	}
@@ -337,44 +338,46 @@ static int16_t update_encoder_diff(MotorController *motor)
 	return diff;
 }
 
-// #define RPM_STEP        20.0f  // 테이블 간격 (20 RPM)
-// #define MAX_RPM_INDEX   2      // (TABLE_SIZE - 2) -> 0, 20, 40, 80일 때 (4-2 = 2)
+#define RPM_STEP        20.0f  // 테이블 간격 (20 RPM)
+#define TABLE_SIZE		4
+#define MAX_RPM_INDEX   2      // (TABLE_SIZE - 2) -> 0, 20, 40, 80일 때 (4-2 = 2)
 
-// static const float rpm_table[] = {0.0f, 20.0f, 40.0f, 80.0f};
-// static const float ccr_table[] = {0.0f, 43.0f, 70.0f, 230.0f};
+static const float rpm_table[] = {0.0f, 20.0f, 40.0f, 80.0f};
+static const float ccr_table[] = {0.0f, 43.0f, 70.0f, 230.0f};
 
-// static float get_feed_forward(float target_rpm)
-// {
-//     // 속도 크기(절댓값) 사용
-//     float abs_rpm = (target_rpm < 0.0f) ? -target_rpm : target_rpm;
+static float get_feed_forward(float target_rpm)
+{
+    // 속도 크기(절댓값) 사용
+    float abs_rpm = (target_rpm < 0.0f) ? -target_rpm : target_rpm;
 
-//     // 1. 하한/상한 예외 처리
-//     if (abs_rpm <= rpm_table[0]) return 0.0f;
+    // 1. 하한/상한 예외 처리
+    if (abs_rpm <= rpm_table[0]) return 0.0f;
     
-//     if (abs_rpm >= rpm_table[TABLE_SIZE - 1]) {
-//         return ccr_table[TABLE_SIZE - 1]; // 무조건 양수 CCR 반환
-//     }
+    if (abs_rpm >= rpm_table[TABLE_SIZE - 1]) {
+        return ccr_table[TABLE_SIZE - 1]; // 무조건 양수 CCR 반환
+    }
 
-//     // 2. O(1) 인덱스 계산
-//     int idx = (int)(abs_rpm / RPM_STEP);
-//     if (idx > MAX_RPM_INDEX) {
-//         idx = MAX_RPM_INDEX;
-//     }
+    // 2. O(1) 인덱스 계산
+    int idx = (int)(abs_rpm / RPM_STEP);
+    if (idx > MAX_RPM_INDEX) {
+        idx = MAX_RPM_INDEX;
+    }
 
-//     // 3. 1차 선형 보간 (Linear Interpolation)
-//     float rpm_low  = rpm_table[idx];
-//     float rpm_high = rpm_table[idx + 1];
-//     float ccr_low  = ccr_table[idx];
-//     float ccr_high = ccr_table[idx + 1];
+    // 3. 1차 선형 보간 (Linear Interpolation)
+    float rpm_low  = rpm_table[idx];
+    float rpm_high = rpm_table[idx + 1];
+    float ccr_low  = ccr_table[idx];
+    float ccr_high = ccr_table[idx + 1];
 
-//     float ratio = (abs_rpm - rpm_low) / (rpm_high - rpm_low);
-//     float ff_ccr = ccr_low + ratio * (ccr_high - ccr_low);
+    float ratio = (abs_rpm - rpm_low) / (rpm_high - rpm_low);
+    float ff_ccr = ccr_low + ratio * (ccr_high - ccr_low);
 
-//     return ff_ccr;
-// }
+    return ff_ccr;
+}
 
 static uint16_t update_motor_pid(MotorController *motor, int16_t diff)
 {
+	float ff_control = 0.0f;
 	uint32_t pulse_cnt = (diff < 0) ? -diff : diff;
 	motor->current_rpm = (float)pulse_cnt * 0.30303f;	// (60 * pulse_cnt) / (0.05 * 11 * 90 * 4)
 
@@ -391,12 +394,14 @@ static uint16_t update_motor_pid(MotorController *motor, int16_t diff)
 		motor->accError += motor->realError * DT;
 
 		// I항 Anti-Windup
-		// if (motor->accError > 30.0f) {
-		// 	motor->accError = 30.0f;
-		// }
-		// else if (motor->accError < -30.0f) {
-		// 	motor->accError = -30.0f;
-		// }
+		if (motor->accError > 30.0f) {
+			motor->accError = 30.0f;
+		}
+		else if (motor->accError < -30.0f) {
+			motor->accError = -30.0f;
+		}
+
+		ff_control = get_feed_forward(motor->target_rpm);
 
 		float contorl_diff = fabsf(motor->target_rpm - motor->current_rpm);
 
@@ -409,7 +414,7 @@ static uint16_t update_motor_pid(MotorController *motor, int16_t diff)
 		motor->dControl = d_gain * (motor->errorGap / DT);
 	}
 
-	float output = motor->pControl + motor->iControl + motor->dControl;
+	float output = ff_control + motor->pControl + motor->iControl + motor->dControl;
 
 	if (output < 0.0f) {
 		output = 0.0f;
@@ -767,7 +772,8 @@ static void OTATrigTask(void *p_arg)
 	}
 }
 
-#define LOW_BAT_THRESHOLD 10.5f
+//#define LOW_BAT_THRESHOLD 10.5f
+#define LOW_BAT_THRESHOLD 11.5f	// 50%
 
 // PB0 ADC1 Channel 8 Init
 void ADC1_bat_check_init(void)
@@ -818,6 +824,8 @@ static void BatteryCheckTask(void *p_arg)
 	uint16_t adc_raw;
 	float battery_voltage;
 
+	led_off();
+
 	while (1) {
 		adc_raw = battery_read_raw();
 
@@ -825,9 +833,11 @@ static void BatteryCheckTask(void *p_arg)
 
 		if (battery_voltage < LOW_BAT_THRESHOLD) {
 			// 부저 on
+			led_on();
 		}
 		else {
 			// 부저 off
+			led_off();
 		}
 
 		OSTimeDly(1000);
@@ -842,7 +852,7 @@ static void AppTaskComm(void *p_arg)
     //last_wake_time = OSTimeGet();
 
     while (1) {
-		led_toggle();
+		//led_toggle();
 		//s_printf("rpm : %f\r\n", current_rpm);
 		//s_printf("distance : %f\r\n", left_wheel_distance);
 
